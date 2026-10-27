@@ -1,0 +1,102 @@
+using UnityEngine;
+
+[RequireComponent(typeof(CharacterController))]
+public class PlayerController : MonoBehaviour
+{
+    public float moveSpeed = 6f;
+    public float runSpeed = 10f;
+    public float gravity = -19.62f;
+    public float jumpHeight = 1.5f;
+
+    public Transform cameraHolder;
+    public float mouseSensitivity = 2f;
+    
+    private CharacterController controller;
+    private Vector3 velocity;
+    private float cameraPitch = 0f;
+
+    void Start()
+    {
+        controller = GetComponent<CharacterController>();
+        Cursor.lockState = CursorLockMode.Locked;
+    }
+
+    void Update()
+    {
+        // Rotasi Kamera
+        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        transform.Rotate(Vector3.up * mouseX);
+        cameraPitch = Mathf.Clamp(cameraPitch - mouseY, -30f, 60f);
+        if (cameraHolder != null) cameraHolder.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+
+        // Pergerakan Karakter
+        bool isGrounded = controller.isGrounded;
+        if (isGrounded && velocity.y < 0) velocity.y = -2f;
+
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+        float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : moveSpeed;
+
+        Vector3 move = transform.right * x + transform.forward * z;
+        controller.Move(move * speed * Time.deltaTime);
+
+        if (Input.GetButtonDown("Jump") && isGrounded)
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
+    }
+}
+using UnityEngine;
+
+public class WeaponShooter : MonoBehaviour
+{
+    public float damage = 25f;
+    public float range = 100f;
+    public Camera playerCamera;
+
+    void Update()
+    {
+        if (Input.GetButtonDown("Fire1"))
+        {
+            Shoot();
+        }
+    }
+
+    void Shoot()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, range))
+        {
+            EnemyAI enemy = hit.transform.GetComponent<EnemyAI>();
+            if (enemy != null) enemy.TakeDamage(damage);
+        }
+    }
+}
+using UnityEngine;
+using UnityEngine.AI;
+
+public class EnemyAI : MonoBehaviour
+{
+    public float health = 100f;
+    public NavMeshAgent agent;
+    public Transform playerTarget;
+
+    void Awake()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        if (playerTarget == null) playerTarget = GameObject.FindWithTag("Player")?.transform;
+    }
+
+    void Update()
+    {
+        if (playerTarget != null) agent.SetDestination(playerTarget.position);
+    }
+
+    public void TakeDamage(float amount)
+    {
+        health -= amount;
+        if (health <= 0f) Destroy(gameObject);
+    }
+}
